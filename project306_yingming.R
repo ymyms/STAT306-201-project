@@ -1,3 +1,7 @@
+# Author: Yingming Sha
+# Course: STAT 306 201 2024W2
+# Last Modified: 2025-04-17
+
 # Load library
 library(ggplot2)
 library(dplyr)
@@ -7,18 +11,42 @@ library(leaps)
 library(GGally)
 library(tidyr)
 library(tibble)
+library(gridExtra) 
 
 # Load data
 white=read.csv("winequality-white.csv", sep = ";")
 
-# EDA plots
+# Correlation
+cor(white$alcohol, white$quality)
+cor(white$density, white$quality)
+cor(white$pH, white$quality)
+cor(white$residual.sugar, white$quality)
+cor(white$fixed.acidity, white$quality)
+cor(white$volatile.acidity, white$quality)
+cor(white$citric.acid, white$quality)
+cor(white$chlorides, white$quality)
+cor(white$free.sulfur.dioxide, white$quality)
+cor(white$total.sulfur.dioxide, white$quality)
+cor(white$sulphates, white$quality)
 
-# Response
-ggplot(white, aes(x = factor(quality))) +
-  geom_bar(fill = "skyblue") +
-  labs(title = "White Wine Quality Distribution", x = "Quality", y = "Count")
+# List of variables
+vars <- c("alcohol", "density", "pH", "residual.sugar", "fixed.acidity", 
+          "volatile.acidity", "citric.acid", "chlorides", 
+          "free.sulfur.dioxide", "total.sulfur.dioxide", "sulphates")
 
-# Covariate
+# Scatter plots
+plots <- lapply(vars, function(var) {
+  ggplot(white, aes(x = .data[[var]], y = .data[["quality"]])) + 
+    geom_point(alpha = 0.5) +
+    labs(title = paste("Scatterplot of", var, "vs Quality")) +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 10))  
+})
+
+# Arrange the plots in a grid
+do.call(grid.arrange, c(plots, ncol = 3))  
+
+# Box plots
 ggplot(white, aes(x = factor(quality), y = alcohol)) +
   geom_boxplot(fill = "skyblue") +
   labs(title = "Alcohol by Quality Level", x = "Quality", y = "Alcohol") +
@@ -95,9 +123,9 @@ print(vif_values2)
 # Corrlation plot
 cor_matrix <- cor(white[, sapply(white, is.numeric)])
 corrplot(cor_matrix, method = "circle", type = "upper", 
-         tl.cex = 0.8, # Text label size
-         addCoef.col = "black", # Add correlation coefficients on the plot
-         diag = FALSE) # Hide the diagonal values
+         tl.cex = 0.8,
+         addCoef.col = "black", 
+         diag = FALSE) 
 
 GGally::ggpairs(white[, c("alcohol", "density", "pH", "residual.sugar", "fixed.acidity", "volatile.acidity","citric.acid"
 ,"chlorides","free.sulfur.dioxide","total.sulfur.dioxide","sulphates")],upper = list(continuous = wrap("cor", size = 4)),
@@ -151,7 +179,7 @@ adj_r_squared <- c(summary(forward_model)$adj.r.squared,
                    summary(stepwise_model)$adj.r.squared,
                    summary(full_model)$adj.r.squared)
 
-# Create a data frame for easy viewing
+# Create a data for easy viewing
 comparison_table <- data.frame(
   Model = model_names,
   R_squared = round(r_squared, 4),
@@ -168,6 +196,15 @@ summary(stepwise_model)
 
 # Select the final model
 final_selected <- lm(quality ~ alcohol+volatile.acidity+residual.sugar+free.sulfur.dioxide+fixed.acidity+sulphates+total.sulfur.dioxide+pH+chlorides, data = white)
+summary(final_selected)
+
+#Cp
+sigma2_full <- summary(full_model)$sigma^2
+rss_final <- sum(resid(final_selected)^2)
+n <- nrow(white)
+k <- length(coef(final_selected)) 
+cp_final <- rss_final / sigma2_full - (n - 2 * k)
+cp_final
 
 # Extract fitted values
 fitted_values <- fitted(final_selected)
@@ -178,12 +215,13 @@ residuals_values <- residuals(final_selected)
 # Residual plot
 plot(fitted_values, residuals_values,
      xlab = "Fitted Values", ylab = "Residuals",
-     main = "Residuals vs Fitted")
+     main = "Residuals vs Fitted",
+     pch = 16, col = rgb(0, 0, 1, 0.3))  
 abline(h = 0, col = "red", lty = 2)
 
 # QQ plot
 qqnorm(residuals_values, main = "Q-Q Plot of Residuals")
-qqline(residuals_values, col = "red")  # Add a reference line
+qqline(residuals_values, col = "red")  
 
 # Final vif check
 vif_final <- vif(final_selected)
